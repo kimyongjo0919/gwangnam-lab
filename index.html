@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>시약 관리 - 광남고 창의융합과학부</title>
+<style>
+  :root {
+    --blue: #1a56a0; --blue-light: #e8f0fb; --blue-mid: #4a7fc1;
+    --red: #c0392b; --red-light: #fdecea;
+    --green: #1a7a4a; --green-light: #e8f5ee;
+    --orange: #d4680a; --orange-light: #fef3e8;
+    --purple: #6b2fa0; --purple-light: #f0e8fa;
+    --gray: #f4f6f9; --border: #dde3ed;
+    --text: #1a2233; --text-sub: #5a6880; --white: #fff;
+    --shadow: 0 2px 12px rgba(26,86,160,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic','맑은 고딕',sans-serif; background:var(--gray); color:var(--text); min-height:100vh; }
+
+  .header {
+    background:var(--blue); color:white; padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:relative; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,0.18);
+  }
+  .header-title { font-size:18px; font-weight:700; }
+  .header-sub { font-size:12px; opacity:0.75; margin-top:2px; }
+  .sync-badge { font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.35); }
+  .sync-badge.ok { background:rgba(40,200,100,0.3); }
+  .sync-badge.err { background:rgba(220,50,50,0.3); }
+
+  .tab-nav { display:flex; background:white; border-bottom:2px solid var(--border); position:sticky; top:0; z-index:98; overflow-x:auto; }
+  .tab-btn {
+    flex:1; min-width:70px; padding:14px 6px; border:none; background:transparent;
+    font-size:12px; font-weight:600; color:var(--text-sub); cursor:pointer;
+    border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.2s; white-space:nowrap;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1); touch-action: manipulation;
+  }
+  .tab-btn.active { color:var(--blue); border-bottom-color:var(--blue); }
+  .tab-btn.add-tab.active { color:var(--purple); border-bottom-color:var(--purple); }
+  .tab-icon { font-size:17px; display:block; margin-bottom:2px; }
+
+  .tab-content { display:none; padding:16px; }
+  .tab-content.active { display:block; }
+
+  .card { background:white; border-radius:12px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+  .card-title {
+    font-size:15px; font-weight:700; color:var(--blue);
+    margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .card-title.purple { color:var(--purple); }
+
+  label { font-size:13px; font-weight:600; color:var(--text-sub); display:block; margin-bottom:5px; }
+  input, select, textarea {
+    width:100%; padding:11px 14px; border:1.5px solid var(--border);
+    border-radius:8px; font-size:15px; font-family:inherit;
+    background:var(--gray); color:var(--text); transition:border-color 0.2s; -webkit-appearance:none;
+  }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--blue); background:white; }
+  textarea { resize:vertical; min-height:60px; }
+  .form-row { margin-bottom:12px; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .form-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+
+  .btn {
+    padding:13px 20px; border:none; border-radius:8px; font-size:15px; font-weight:700;
+    cursor:pointer; font-family:inherit; transition:all 0.15s;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .btn-primary { background:var(--blue); color:white; width:100%; }
+  .btn-primary:active { background:#1040a0; transform:scale(0.98); }
+  .btn-purple { background:var(--purple); color:white; width:100%; }
+  .btn-purple:active { background:#4a1a7a; transform:scale(0.98); }
+  .btn-danger { background:var(--red); color:white; }
+  .btn-outline { background:transparent; color:var(--blue); border:1.5px solid var(--blue); padding:8px 14px; font-size:13px; }
+  .btn-sm { padding:7px 12px; font-size:13px; border-radius:6px; }
+
+  .reagent-search-wrap { position:relative; }
+  .reagent-dropdown {
+    position:absolute; top:100%; left:0; right:0;
+    background:white; border:1.5px solid var(--blue); border-top:none;
+    border-radius:0 0 8px 8px; max-height:200px; overflow-y:auto;
+    z-index:200; box-shadow:0 4px 12px rgba(0,0,0,0.12); display:none;
+  }
+  .reagent-dropdown.show { display:block; }
+  .reagent-option { padding:11px 14px; cursor:pointer; border-bottom:1px solid var(--border); font-size:14px; }
+  .reagent-option:hover, .reagent-option:active { background:var(--blue-light); }
+  .reagent-option .opt-spec { font-size:11px; color:var(--text-sub); }
+
+  .selected-reagent { background:var(--blue-light); border:1.5px solid var(--blue-mid); border-radius:8px; padding:12px 14px; margin-bottom:12px; }
+  .selected-reagent .r-name { font-size:15px; font-weight:700; color:var(--blue); }
+  .selected-reagent .r-info { font-size:12px; color:var(--text-sub); margin-top:3px; }
+  .selected-reagent .r-remaining { font-size:13px; margin-top:6px; font-weight:600; color:var(--green); }
+
+  .record-item { border:1px solid var(--border); border-radius:10px; padding:13px 14px; margin-bottom:10px; background:white; }
+  .record-item .ri-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+  .record-item .ri-name { font-size:14px; font-weight:700; color:var(--blue); }
+  .record-item .ri-date { font-size:12px; color:var(--text-sub); }
+  .record-item .ri-body { font-size:13px; color:var(--text); margin-bottom:4px; }
+  .record-item .ri-amounts { display:flex; gap:12px; font-size:12px; background:var(--gray); border-radius:6px; padding:6px 10px; flex-wrap:wrap; }
+  .record-item .ri-amounts span { color:var(--text-sub); }
+  .record-item .ri-amounts b { color:var(--text); }
+
+  .reagent-list-item {
+    border:1px solid var(--border); border-radius:10px; padding:13px 14px;
+    margin-bottom:10px; background:white; display:flex; align-items:center; gap:10px;
+  }
+  .rli-info { flex:1; }
+  .rli-name { font-size:14px; font-weight:700; }
+  .rli-meta { font-size:12px; color:var(--text-sub); margin-top:2px; }
+  .rli-remaining { font-size:13px; font-weight:700; min-width:60px; text-align:right; }
+  .rli-remaining.ok { color:var(--green); }
+  .rli-remaining.low { color:var(--red); }
+
+  .danger-badge { font-size:10px; padding:2px 6px; border-radius:4px; background:var(--red-light); color:var(--red); font-weight:700; margin-left:6px; }
+  .new-badge { font-size:10px; padding:2px 6px; border-radius:4px; background:var(--purple-light); color:var(--purple); font-weight:700; margin-left:6px; }
+  .cat-header { font-size:12px; font-weight:700; color:var(--text-sub); padding:8px 0 4px; border-bottom:1px solid var(--border); margin-bottom:8px; margin-top:4px; }
+
+  /* 신규 시약 추가 탭 스타일 */
+  .add-section-title {
+    font-size:13px; font-weight:700; color:var(--purple);
+    padding:10px 0 6px; border-bottom:2px solid var(--purple-light);
+    margin-bottom:12px; margin-top:4px;
+  }
+  .purchase-info-box {
+    background:var(--purple-light); border:1.5px solid #c9a0e8;
+    border-radius:10px; padding:14px; margin-bottom:14px;
+  }
+  .purchase-info-box label { color:var(--purple); }
+  .purchase-info-box input, .purchase-info-box select {
+    border-color:#c9a0e8; background:white;
+  }
+  .purchase-info-box input:focus, .purchase-info-box select:focus { border-color:var(--purple); }
+
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:500; align-items:flex-end; justify-content:center; }
+  .modal-overlay.show { display:flex; }
+  .modal { background:white; border-radius:20px 20px 0 0; padding:20px; width:100%; max-height:90vh; overflow-y:auto; }
+  .modal-title { font-size:17px; font-weight:700; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .modal-close { font-size:22px; cursor:pointer; color:var(--text-sub); background:none; border:none; line-height:1; }
+
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1a2233; color:white; padding:12px 22px; border-radius:30px; font-size:14px; font-weight:600; z-index:999; opacity:0; transition:opacity 0.3s; white-space:nowrap; pointer-events:none; }
+  .toast.show { opacity:1; }
+  .toast.success { background:var(--green); }
+  .toast.error { background:var(--red); }
+
+  .filter-row { display:flex; gap:8px; margin-bottom:14px; overflow-x:auto; padding-bottom:4px; }
+  .filter-btn { padding:7px 14px; border-radius:20px; border:1.5px solid var(--border); background:white; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; color:var(--text-sub); font-family:inherit; }
+  .filter-btn.active { background:var(--blue); color:white; border-color:var(--blue); }
+
+  .empty-state { text-align:center; padding:40px 20px; color:var(--text-sub); font-size:14px; }
+  .empty-state .es-icon { font-size:36px; margin-bottom:8px; }
+
+  .checkbox-row { display:flex; align-items:center; gap:10px; padding:4px 0; }
+  .checkbox-row input[type=checkbox] { width:auto; margin:0; width:18px; height:18px; }
+  .checkbox-row label { margin:0; cursor:pointer; font-size:14px; color:var(--text); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">🧪 시약 관리</div>
+    <div class="header-sub">광남고 창의융합과학부</div>
+  </div>
+  <div class="sync-badge" id="syncBadge">연결 중...</div>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" id="tabBtn-record" onclick="switchTab('record',this)">
+    <span class="tab-icon">📝</span>사용 기록
+  </button>
+  <button class="tab-btn" id="tabBtn-history" onclick="switchTab('history',this)">
+    <span class="tab-icon">📋</span>기록 조회
+  </button>
+  <button class="tab-btn add-tab" id="tabBtn-add" onclick="switchTab('add',this)">
+    <span class="tab-icon">🛒</span>시약 추가
+  </button>
+  <button class="tab-btn" id="tabBtn-manage" onclick="switchTab('manage',this)">
+    <span class="tab-icon">⚗️</span>시약 관리
+  </button>
+</div>
+
+<!-- ===== TAB 1: 사용 기록 ===== -->
+<div class="tab-content active" id="tab-record">
+  <div class="card">
+    <div class="card-title">📝 시약 사용 기록 입력</div>
+    <div class="form-row">
+      <label>시약 선택 *</label>
+      <div class="reagent-search-wrap">
+        <input type="text" id="reagentSearch" placeholder="시약명 검색..." autocomplete="off"
+          oninput="searchReagent(this.value)" onfocus="searchReagent(this.value)">
+        <div class="reagent-dropdown" id="reagentDropdown"></div>
+      </div>
+    </div>
+    <div id="selectedReagentCard" style="display:none"></div>
+    <div class="form-grid">
+      <div class="form-row"><label>날짜 *</label><input type="date" id="recDate"></div>
+      <div class="form-row">
+        <label>교시</label>
+        <select id="recPeriod">
+          <option value="">선택</option>
+          <option>1교시</option><option>2교시</option><option>3교시</option>
+          <option>4교시</option><option>5교시</option><option>6교시</option>
+          <option>7교시</option><option>방과후</option><option>기타</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label>사용 목적 / 실험명 *</label><input type="text" id="recPurpose" placeholder="예: 중화 적정 실험"></div>
+    <div class="form-grid">
+      <div class="form-row"><label>사용량 *</label><input type="text" id="recAmount" placeholder="예: 50mL"></div>
+      <div class="form-row"><label>사용 후 잔량 *</label><input type="text" id="recRemaining" placeholder="예: 450mL"></div>
+    </div>
+    <div class="form-row"><label>사용자 이름 *</label><input type="text" id="recUser" placeholder="성함 또는 학번"></div>
+    <div class="form-row"><label>비고</label><textarea id="recNote" placeholder="특이사항 등"></textarea></div>
+    <button class="btn btn-primary" onclick="submitRecord()">✅ 기록 저장</button>
+  </div>
+</div>
+
+<!-- ===== TAB 2: 기록 조회 ===== -->
+<div class="tab-content" id="tab-history">
+  <div class="card">
+    <div class="card-title">📋 사용 기록 조회</div>
+    <input type="text" id="historySearch" placeholder="시약명 또는 실험명 검색..." oninput="renderHistory()" style="margin-bottom:12px">
+    <div id="historyList"><div class="empty-state"><div class="es-icon">📭</div>불러오는 중...</div></div>
+  </div>
+</div>
+
+<!-- ===== TAB 3: 시약 추가 (신규 구매) ===== -->
+<div class="tab-content" id="tab-add">
+  <div class="card">
+    <div class="card-title purple">🛒 신규 시약 등록</div>
+
+    <div class="purchase-info-box">
+      <div class="add-section-title">📦 구매 정보</div>
+      <div class="form-grid">
+        <div class="form-row"><label>구매일 *</label><input type="date" id="addPurchaseDate"></div>
+        <div class="form-row"><label>구매처</label><input type="text" id="addSupplier" placeholder="예: 덕산, 시그마알드리치"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>유효기간</label><input type="date" id="addExpiry"></div>
+        <div class="form-row"><label>구매 금액</label><input type="text" id="addPrice" placeholder="예: 45,000원"></div>
+      </div>
+    </div>
+
+    <div class="add-section-title">🧪 시약 정보</div>
+    <div class="form-row"><label>시약명 *</label><input type="text" id="addName" placeholder="예: Sodium chloride (NaCl)"></div>
+    <div class="form-grid">
+      <div class="form-row"><label>규격/농도</label><input type="text" id="addSpec" placeholder="예: 99%, 0.1M"></div>
+      <div class="form-row">
+        <label>카테고리 *</label>
+        <select id="addCat">
+          <option>유기화합물</option><option>산·염기류</option><option>무기화합물</option>
+          <option>지시약·염색약</option><option>생화학 시약</option><option>완충액·표준액</option><option>기타</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>용기 용량</label><input type="text" id="addContainer" placeholder="예: 500g, 1L"></div>
+      <div class="form-row"><label>구매 수량</label><input type="text" id="addQty" placeholder="예: 2병, 1kg"></div>
+    </div>
+    <div class="form-row"><label>초기 수량 (= 현재 잔량) *</label><input type="text" id="addInitial" placeholder="예: 500g"></div>
+    <div class="form-row"><label>보관 주의사항</label><input type="text" id="addNote" placeholder="예: 냉장 보관, 빛 차단, 부식성"></div>
+    <div class="checkbox-row form-row">
+      <input type="checkbox" id="addDanger">
+      <label for="addDanger">⚠️ 위험 시약 (산·염기·독성 등)</label>
+    </div>
+    <div class="form-row"><label>추가 메모</label><textarea id="addMemo" placeholder="특이사항, 사용 용도 등"></textarea></div>
+
+    <button class="btn btn-purple" onclick="submitNewReagent()">🛒 시약 등록하기</button>
+  </div>
+</div>
+
+<!-- ===== TAB 4: 시약 관리 ===== -->
+<div class="tab-content" id="tab-manage">
+  <div class="card" style="background:var(--orange-light);border:1.5px solid #f0a860;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--orange);">🔄 잔량 전체 초기화</div>
+        <div style="font-size:12px;color:var(--text-sub);margin-top:3px;">모든 시약의 잔량을 초기 수량으로 되돌립니다</div>
+      </div>
+      <button class="btn btn-sm" style="background:var(--orange);color:white;white-space:nowrap;" onclick="resetAllRemaining()">초기화</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">
+      ⚗️ 시약 목록
+      <button class="btn btn-outline btn-sm" onclick="openEditModal()">+ 빠른 추가</button>
+    </div>
+    <div class="filter-row" id="catFilters"></div>
+    <div id="reagentList"><div class="empty-state"><div class="es-icon">⏳</div>불러오는 중...</div></div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<!-- 수정 모달 -->
+<div class="modal-overlay" id="reagentModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modalTitle">시약 수정</span>
+      <button class="modal-close" onclick="closeModal('reagentModal')">✕</button>
+    </div>
+    <input type="hidden" id="editReagentId">
+    <div class="form-row"><label>시약명 *</label><input type="text" id="mName"></div>
+    <div class="form-grid">
+      <div class="form-row"><label>규격/농도</label><input type="text" id="mSpec"></div>
+      <div class="form-row">
+        <label>카테고리</label>
+        <select id="mCat">
+          <option>유기화합물</option><option>산·염기류</option><option>무기화합물</option>
+          <option>지시약·염색약</option><option>생화학 시약</option><option>완충액·표준액</option><option>기타</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>용기 용량</label><input type="text" id="mContainer"></div>
+      <div class="form-row"><label>초기 수량</label><input type="text" id="mInitial"></div>
+    </div>
+    <div class="form-row"><label>현재 잔량 *</label><input type="text" id="mRemaining"></div>
+    <div class="form-row"><label>구매일</label><input type="date" id="mPurchaseDate"></div>
+    <div class="form-row"><label>유효기간</label><input type="date" id="mExpiry"></div>
+    <div class="form-row"><label>보관 주의사항</label><input type="text" id="mNote"></div>
+    <div class="checkbox-row form-row">
+      <input type="checkbox" id="mDanger">
+      <label for="mDanger">⚠️ 위험 시약</label>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveReagent()">저장</button>
+      <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteReagent()" style="display:none">삭제</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, push, onValue, remove, update }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCbge3SJHNLR0W_sF9Y-gJxCb81Tcwn1IE",
+  authDomain: "gwangnam-lab.firebaseapp.com",
+  projectId: "gwangnam-lab",
+  storageBucket: "gwangnam-lab.firebasestorage.app",
+  messagingSenderId: "404444667537",
+  appId: "1:404444667537:web:80e8be366d9ffdbe846930",
+  databaseURL: "https://gwangnam-lab-default-rtdb.firebaseio.com"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const reagentsRef = ref(db, 'reagents');
+const recordsRef = ref(db, 'records');
+
+let reagents = {}, records = [], selectedReagentId = null, activeCat = '전체';
+
+// ===== 초기 시약 데이터 (잔량 = 초기수량) =====
+const initialReagents = [
+  {name:"에탄올 (Ethanol) 95%",spec:"95%",cat:"유기화합물",container:"2L",initial:"2L",remaining:"2L",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"에탄올 (Ethanol) 70%",spec:"70%",cat:"유기화합물",container:"450mL",initial:"450mL×6병",remaining:"450mL×6병",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Phosphoric acid (A)",spec:"-",cat:"유기화합물",container:"1kg",initial:"1kg",remaining:"1kg",note:"산성",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Phosphoric acid (B)",spec:"-",cat:"유기화합물",container:"500g",initial:"500g",remaining:"500g",note:"산성",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Formic acid",spec:"-",cat:"유기화합물",container:"500g",initial:"500g",remaining:"500g",note:"산성",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Isoamyl alcohol",spec:"extra pure",cat:"유기화합물",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Acetic acid",spec:"0.1M",cat:"유기화합물",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Citric acid (구연산)",spec:"-",cat:"유기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"4-Nitrophenol",spec:"-",cat:"유기화합물",container:"25g",initial:"25g",remaining:"25g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"4-Aminophenol (A)",spec:"-",cat:"유기화합물",container:"25g",initial:"25g",remaining:"25g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"4-Aminophenol (B)",spec:"-",cat:"유기화합물",container:"25g",initial:"25g",remaining:"25g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"4-Aminophenol (C)",spec:"-",cat:"유기화합물",container:"25g",initial:"25g",remaining:"25g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Ascorbic acid (비타민C)",spec:"-",cat:"유기화합물",container:"25g",initial:"25g",remaining:"25g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Tween",spec:"-",cat:"유기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrochloric acid (A)",spec:"-",cat:"산·염기류",container:"1L",initial:"1L",remaining:"1L",note:"부식성",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrochloric acid (B)",spec:"-",cat:"산·염기류",container:"500mL",initial:"500mL",remaining:"500mL",note:"부식성",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrochloric acid (C)",spec:"-",cat:"산·염기류",container:"500mL",initial:"500mL",remaining:"500mL",note:"부식성",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrochloric acid 0.1M (A)",spec:"0.1M",cat:"산·염기류",container:"1L",initial:"1L",remaining:"1L",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrochloric acid 0.1M (B)",spec:"0.1M",cat:"산·염기류",container:"1L",initial:"1L",remaining:"1L",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Sulfuric acid 10%",spec:"10%",cat:"산·염기류",container:"1L",initial:"1L",remaining:"1L",note:"부식성",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Sodium hydroxide (NaOH) A",spec:"-",cat:"산·염기류",container:"500g",initial:"500g",remaining:"500g",note:"강염기",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Sodium hydroxide (NaOH) B",spec:"-",cat:"산·염기류",container:"500g",initial:"500g",remaining:"500g",note:"강염기",danger:true,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrogen peroxide 34.5% (A)",spec:"34.5%",cat:"무기화합물",container:"1kg",initial:"1kg",remaining:"1kg",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrogen peroxide 34.5% (B)",spec:"34.5%",cat:"무기화합물",container:"1kg",initial:"1kg",remaining:"1kg",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrogen peroxide 34.5% (C)",spec:"34.5%",cat:"무기화합물",container:"1kg",initial:"1kg",remaining:"1kg",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Hydrogen peroxide 30%",spec:"30%",cat:"무기화합물",container:"1kg",initial:"1kg",remaining:"1kg",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Potassium iodide (KI)",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Potassium chlorate (KClO3)",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Potassium iodate (KIO3)",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Potassium hydrogen phthalate",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Potassium thiocyanate solution",spec:"0.1M",cat:"무기화합물",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Silver nitrate solution (A)",spec:"0.1M",cat:"무기화합물",container:"500mL",initial:"500mL",remaining:"500mL",note:"빛 차단",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Silver nitrate solution (B)",spec:"0.1M",cat:"무기화합물",container:"500mL",initial:"500mL",remaining:"500mL",note:"빛 차단",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Silver(I) nitrate standard",spec:"0.01M",cat:"무기화합물",container:"450mL",initial:"450mL",remaining:"450mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"CuSO4 solution",spec:"-",cat:"무기화합물",container:"100mL",initial:"100mL",remaining:"100mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Calcium carbonate (A)",spec:"-",cat:"무기화합물",container:"100g",initial:"100g",remaining:"100g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Calcium carbonate (B)",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Calcium chloride dihydrate",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Iron(III) chloride hexahydrate",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Iron(III) chloride solution",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"염화암모늄 (NH4Cl)",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Borax (붕사)",spec:"-",cat:"무기화합물",container:"180g",initial:"180g",remaining:"180g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Titanium dioxide (TiO2)",spec:"-",cat:"무기화합물",container:"100g",initial:"100g",remaining:"100g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Sodium phosphate monobasic",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Sodium phosphate dibasic 99%",spec:"99%",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Sodium alginate",spec:"-",cat:"무기화합물",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"BTB (Bromothymol blue)",spec:"-",cat:"지시약·염색약",container:"500cc",initial:"500cc",remaining:"500cc",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Bromothymol blue solution",spec:"0.1%",cat:"지시약·염색약",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Phenolphthalein",spec:"0.1%",cat:"지시약·염색약",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Thymolphthalein (A)",spec:"0.1%",cat:"지시약·염색약",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Thymolphthalein (B)",spec:"-",cat:"지시약·염색약",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Methyl orange",spec:"-",cat:"지시약·염색약",container:"100mL",initial:"100mL",remaining:"100mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Methylene Blue",spec:"-",cat:"지시약·염색약",container:"100mL",initial:"100mL",remaining:"100mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Iodine-KI solution (A)",spec:"-",cat:"지시약·염색약",container:"500cc",initial:"500cc",remaining:"500cc",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Iodine-KI solution (B)",spec:"-",cat:"지시약·염색약",container:"100mL",initial:"100mL",remaining:"100mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Aceto-Orcein (아세토올세인)",spec:"1%",cat:"지시약·염색약",container:"60mL",initial:"60mL",remaining:"60mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"DPPH",spec:"0.2mM",cat:"지시약·염색약",container:"100mL",initial:"100mL",remaining:"100mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"식용색소 (빨강)",spec:"-",cat:"지시약·염색약",container:"30g",initial:"30g",remaining:"30g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"수단3 용액",spec:"-",cat:"지시약·염색약",container:"100mL",initial:"100mL",remaining:"100mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Starch (녹말)",spec:"-",cat:"생화학 시약",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Starch, corn",spec:"-",cat:"생화학 시약",container:"500g",initial:"500g",remaining:"500g",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"베네딕트 용액",spec:"-",cat:"생화학 시약",container:"100mL",initial:"100mL",remaining:"100mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"펩신 용액",spec:"1%",cat:"생화학 시약",container:"150mL",initial:"150mL",remaining:"150mL",note:"냉장 보관",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Buffer pH 2",spec:"pH 2",cat:"완충액·표준액",container:"1L",initial:"1L",remaining:"1L",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Buffer pH 5",spec:"pH 5",cat:"완충액·표준액",container:"1L",initial:"1L",remaining:"1L",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Buffer pH 7 (A)",spec:"pH 7",cat:"완충액·표준액",container:"1L",initial:"1L",remaining:"1L",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"Buffer pH 7 (B)",spec:"pH 7",cat:"완충액·표준액",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+  {name:"계면활성제",spec:"-",cat:"기타",container:"500mL",initial:"500mL",remaining:"500mL",note:"",danger:false,purchaseDate:"",expiry:"",supplier:"",memo:""},
+];
+
+// Firebase 연결
+onValue(reagentsRef, snap => {
+  const data = snap.val();
+  if (!data) {
+    const batch = {};
+    initialReagents.forEach((r, i) => { batch[`r${String(i).padStart(3,'0')}`] = r; });
+    set(reagentsRef, batch);
+  } else {
+    reagents = data;
+    renderReagentList();
+    renderCatFilters();
+  }
+  document.getElementById('syncBadge').textContent = '● 연결됨';
+  document.getElementById('syncBadge').className = 'sync-badge ok';
+}, () => {
+  document.getElementById('syncBadge').textContent = '● 오프라인';
+  document.getElementById('syncBadge').className = 'sync-badge err';
+});
+
+onValue(recordsRef, snap => {
+  const data = snap.val();
+  records = data ? Object.entries(data).map(([id,v])=>({id,...v})).reverse() : [];
+  renderHistory();
+});
+
+// 탭 전환
+window.switchTab = (tab, btn) => {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  const tabEl = document.getElementById('tab-' + tab);
+  if (tabEl) tabEl.classList.add('active');
+  if (btn) btn.classList.add('active');
+};
+
+document.getElementById('recDate').value = new Date().toISOString().split('T')[0];
+document.getElementById('addPurchaseDate').value = new Date().toISOString().split('T')[0];
+
+// 시약 검색
+window.searchReagent = (q) => {
+  const dd = document.getElementById('reagentDropdown');
+  const list = Object.entries(reagents)
+    .filter(([,r]) => r.name.toLowerCase().includes(q.toLowerCase()) || (r.spec||'').includes(q))
+    .slice(0, 8);
+  if (!list.length) { dd.classList.remove('show'); return; }
+  dd.innerHTML = list.map(([id,r]) => `
+    <div class="reagent-option" onclick="selectReagent('${id}')">
+      ${r.name}${r.danger ? '<span class="danger-badge">⚠️위험</span>' : ''}
+      <div class="opt-spec">${r.spec||''} | 잔량: ${r.remaining}</div>
+    </div>`).join('');
+  dd.classList.add('show');
+};
+
+window.selectReagent = (id) => {
+  selectedReagentId = id;
+  const r = reagents[id];
+  document.getElementById('reagentSearch').value = r.name;
+  document.getElementById('reagentDropdown').classList.remove('show');
+  const card = document.getElementById('selectedReagentCard');
+  card.style.display = 'block';
+  card.innerHTML = `
+    <div class="selected-reagent">
+      <div class="r-name">${r.name}${r.danger ? '<span class="danger-badge">⚠️위험</span>' : ''}</div>
+      <div class="r-info">규격: ${r.spec||'-'} | 용기: ${r.container||'-'} | 초기: ${r.initial||'-'}</div>
+      <div class="r-remaining">현재 잔량: ${r.remaining}${r.note ? '  ⚠️ '+r.note : ''}</div>
+    </div>`;
+  document.getElementById('recRemaining').placeholder = '현재: ' + r.remaining;
+};
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.reagent-search-wrap'))
+    document.getElementById('reagentDropdown').classList.remove('show');
+});
+
+// 사용 기록 저장
+window.submitRecord = async () => {
+  const date = document.getElementById('recDate').value;
+  const purpose = document.getElementById('recPurpose').value.trim();
+  const amount = document.getElementById('recAmount').value.trim();
+  const remaining = document.getElementById('recRemaining').value.trim();
+  const user = document.getElementById('recUser').value.trim();
+  if (!selectedReagentId) { showToast('시약을 선택해주세요', 'error'); return; }
+  if (!date||!purpose||!amount||!remaining||!user) { showToast('필수 항목을 모두 입력해주세요', 'error'); return; }
+  const r = reagents[selectedReagentId];
+  try {
+    await push(recordsRef, {
+      reagentId: selectedReagentId, reagentName: r.name, spec: r.spec||'',
+      date, period: document.getElementById('recPeriod').value,
+      purpose, amount, remaining, user,
+      note: document.getElementById('recNote').value.trim(),
+      createdAt: Date.now()
+    });
+    await update(ref(db, 'reagents/'+selectedReagentId), { remaining });
+    showToast('기록이 저장되었습니다', 'success');
+    selectedReagentId = null;
+    document.getElementById('reagentSearch').value = '';
+    document.getElementById('selectedReagentCard').style.display = 'none';
+    ['recPurpose','recAmount','recRemaining','recNote'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('recDate').value = new Date().toISOString().split('T')[0];
+  } catch(e) { showToast('저장 실패: '+e.message, 'error'); }
+};
+
+// 신규 시약 등록
+window.submitNewReagent = async () => {
+  const name = document.getElementById('addName').value.trim();
+  const initial = document.getElementById('addInitial').value.trim();
+  if (!name||!initial) { showToast('시약명과 초기 수량은 필수입니다', 'error'); return; }
+  const data = {
+    name,
+    spec: document.getElementById('addSpec').value.trim(),
+    cat: document.getElementById('addCat').value,
+    container: document.getElementById('addContainer').value.trim(),
+    qty: document.getElementById('addQty').value.trim(),
+    initial,
+    remaining: initial,
+    note: document.getElementById('addNote').value.trim(),
+    danger: document.getElementById('addDanger').checked,
+    purchaseDate: document.getElementById('addPurchaseDate').value,
+    expiry: document.getElementById('addExpiry').value,
+    supplier: document.getElementById('addSupplier').value.trim(),
+    price: document.getElementById('addPrice').value.trim(),
+    memo: document.getElementById('addMemo').value.trim(),
+    createdAt: Date.now(),
+    isNew: true
+  };
+  try {
+    await push(reagentsRef, data);
+    showToast('시약이 등록되었습니다!', 'success');
+    ['addName','addSpec','addContainer','addQty','addInitial','addNote','addSupplier','addPrice','addMemo','addExpiry'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('addDanger').checked = false;
+    document.getElementById('addCat').value = '기타';
+    document.getElementById('addPurchaseDate').value = new Date().toISOString().split('T')[0];
+  } catch(e) { showToast('오류: '+e.message, 'error'); }
+};
+
+// 기록 조회
+window.renderHistory = () => {
+  const q = (document.getElementById('historySearch')?.value||'').toLowerCase();
+  const filtered = records.filter(r => r.reagentName.toLowerCase().includes(q)||r.purpose.toLowerCase().includes(q));
+  const el = document.getElementById('historyList');
+  if (!filtered.length) { el.innerHTML = '<div class="empty-state"><div class="es-icon">📭</div>기록이 없습니다</div>'; return; }
+  el.innerHTML = filtered.slice(0,50).map(r => `
+    <div class="record-item">
+      <div class="ri-header">
+        <div class="ri-name">${r.reagentName}</div>
+        <div class="ri-date">${r.date} ${r.period||''}</div>
+      </div>
+      <div class="ri-body">📌 ${r.purpose}</div>
+      <div class="ri-amounts">
+        <span>사용자: <b>${r.user}</b></span>
+        <span>사용량: <b>${r.amount}</b></span>
+        <span>사용 후: <b>${r.remaining}</b></span>
+      </div>
+      ${r.note?`<div style="font-size:12px;color:#888;margin-top:4px">📎 ${r.note}</div>`:''}
+    </div>`).join('');
+};
+
+// 카테고리 필터
+window.renderCatFilters = () => {
+  const cats = ['전체', ...new Set(Object.values(reagents).map(r=>r.cat).filter(Boolean))];
+  document.getElementById('catFilters').innerHTML = cats.map(c =>
+    `<button class="filter-btn ${c===activeCat?'active':''}" onclick="setCat('${c}')">${c}</button>`
+  ).join('');
+};
+
+window.setCat = (cat) => { activeCat = cat; renderCatFilters(); renderReagentList(); };
+
+// 시약 목록 렌더
+window.renderReagentList = () => {
+  const el = document.getElementById('reagentList');
+  const list = Object.entries(reagents).filter(([,r]) => activeCat==='전체'||r.cat===activeCat);
+  if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="es-icon">⚗️</div>시약이 없습니다</div>'; return; }
+  const byCat = {};
+  list.forEach(([id,r]) => { if(!byCat[r.cat]) byCat[r.cat]=[]; byCat[r.cat].push([id,r]); });
+  el.innerHTML = Object.entries(byCat).map(([cat,items]) => `
+    ${activeCat==='전체'?`<div class="cat-header">${cat}</div>`:''}
+    ${items.map(([id,r]) => `
+      <div class="reagent-list-item" onclick="openEditModal('${id}')">
+        <div class="rli-info">
+          <div class="rli-name">${r.name}${r.danger?'<span class="danger-badge">⚠️</span>':''}${r.isNew?'<span class="new-badge">NEW</span>':''}</div>
+          <div class="rli-meta">${r.spec||'-'} | 초기: ${r.initial||'-'}${r.expiry?' | 유효: '+r.expiry:''}${r.note?' | '+r.note:''}</div>
+        </div>
+        <div class="rli-remaining ok">${r.remaining}</div>
+      </div>`).join('')}
+  `).join('');
+};
+
+// 수정 모달
+window.openEditModal = (id) => {
+  const isNew = !id;
+  document.getElementById('modalTitle').textContent = isNew ? '시약 빠른 추가' : '시약 정보 수정';
+  document.getElementById('editReagentId').value = id||'';
+  document.getElementById('deleteBtn').style.display = isNew ? 'none' : 'inline-flex';
+  if (!isNew) {
+    const r = reagents[id];
+    document.getElementById('mName').value = r.name;
+    document.getElementById('mSpec').value = r.spec||'';
+    document.getElementById('mCat').value = r.cat;
+    document.getElementById('mContainer').value = r.container||'';
+    document.getElementById('mInitial').value = r.initial||'';
+    document.getElementById('mRemaining').value = r.remaining;
+    document.getElementById('mPurchaseDate').value = r.purchaseDate||'';
+    document.getElementById('mExpiry').value = r.expiry||'';
+    document.getElementById('mNote').value = r.note||'';
+    document.getElementById('mDanger').checked = r.danger||false;
+  } else {
+    ['mName','mSpec','mContainer','mInitial','mRemaining','mNote'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('mPurchaseDate').value = '';
+    document.getElementById('mExpiry').value = '';
+    document.getElementById('mDanger').checked = false;
+    document.getElementById('mCat').value = '기타';
+  }
+  document.getElementById('reagentModal').classList.add('show');
+};
+
+window.saveReagent = async () => {
+  const name = document.getElementById('mName').value.trim();
+  const remaining = document.getElementById('mRemaining').value.trim();
+  if (!name||!remaining) { showToast('시약명과 잔량은 필수입니다','error'); return; }
+  const data = {
+    name, spec:document.getElementById('mSpec').value.trim(),
+    cat:document.getElementById('mCat').value,
+    container:document.getElementById('mContainer').value.trim(),
+    initial:document.getElementById('mInitial').value.trim(),
+    remaining, purchaseDate:document.getElementById('mPurchaseDate').value,
+    expiry:document.getElementById('mExpiry').value,
+    note:document.getElementById('mNote').value.trim(),
+    danger:document.getElementById('mDanger').checked
+  };
+  const id = document.getElementById('editReagentId').value;
+  try {
+    if (id) { await update(ref(db,'reagents/'+id), data); showToast('수정되었습니다','success'); }
+    else { await push(reagentsRef, data); showToast('추가되었습니다','success'); }
+    closeModal('reagentModal');
+  } catch(e) { showToast('오류: '+e.message,'error'); }
+};
+
+window.deleteReagent = async () => {
+  if (!confirm('이 시약을 삭제하시겠습니까?')) return;
+  const id = document.getElementById('editReagentId').value;
+  try {
+    await remove(ref(db,'reagents/'+id));
+    showToast('삭제되었습니다');
+    closeModal('reagentModal');
+  } catch(e) { showToast('오류: '+e.message,'error'); }
+};
+
+window.closeModal = (id) => document.getElementById(id).classList.remove('show');
+
+// 잔량 전체 초기화 (DB 완전 초기화 후 재입력)
+window.resetAllRemaining = async () => {
+  if (!confirm('모든 시약의 잔량을 초기 수량으로 초기화합니다.
+기존 데이터를 삭제하고 새로 입력합니다.
+계속하시겠습니까?')) return;
+  try {
+    showToast('초기화 중...');
+    await set(reagentsRef, null);
+    const batch = {};
+    initialReagents.forEach((r, i) => {
+      batch['r' + String(i).padStart(3,'0')] = { ...r, remaining: r.initial };
+    });
+    await set(reagentsRef, batch);
+    showToast('초기화 완료!', 'success');
+  } catch(e) { showToast('오류: ' + e.message, 'error'); }
+};
+
+window.showToast = (msg, type='') => {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show '+type;
+  setTimeout(()=>t.className='toast', 2500);
+};
+</script>
+</body>
+</html>
