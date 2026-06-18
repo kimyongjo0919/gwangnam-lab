@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시약 현황 대시보드 - 광남고 창의융합과학부</title>
+<style>
+  :root {
+    --blue: #1a56a0; --blue-light: #e8f0fb; --blue-mid: #4a7fc1;
+    --red: #c0392b; --red-light: #fdecea;
+    --green: #1a7a4a; --green-light: #e8f5ee;
+    --orange: #d4680a; --orange-light: #fef3e8;
+    --gray: #f0f3f8; --border: #dde3ed;
+    --text: #1a2233; --text-sub: #5a6880; --white: #fff;
+    --shadow: 0 2px 12px rgba(26,86,160,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: var(--gray); color: var(--text); }
+
+  .header {
+    background: var(--blue); color: white;
+    padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header-title { font-size: 18px; font-weight: 700; }
+  .header-sub { font-size: 12px; opacity: 0.7; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ffa; display: inline-block; margin-right: 6px; }
+  .sync-dot.ok { background: #4edb7e; }
+  .header-right { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .now-time { opacity: 0.8; }
+
+  .toolbar {
+    background: white; border-bottom: 1px solid var(--border);
+    padding: 12px 32px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .search-input {
+    padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 7px;
+    font-size: 14px; width: 220px; font-family: inherit;
+  }
+  .search-input:focus { outline: none; border-color: var(--blue); }
+  .cat-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cat-btn {
+    padding: 6px 13px; border-radius: 20px; border: 1.5px solid var(--border);
+    background: white; font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 600;
+    color: var(--text-sub); transition: all 0.15s;
+  }
+  .cat-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
+  .btn {
+    padding: 8px 16px; border: none; border-radius: 7px; font-size: 13px;
+    font-weight: 700; cursor: pointer; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .btn-print { background: var(--blue); color: white; }
+  .btn-print:hover { background: #1040a0; }
+  .btn-export { background: var(--green); color: white; }
+
+  .main { display: flex; gap: 0; height: calc(100vh - 110px); overflow: hidden; }
+
+  /* 좌측 패널 - 시약 목록 */
+  .panel-left {
+    width: 420px; min-width: 320px; background: white;
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-title {
+    padding: 14px 18px; font-size: 14px; font-weight: 700; color: var(--blue);
+    border-bottom: 1px solid var(--border); background: var(--blue-light);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .reagent-scroll { flex: 1; overflow-y: auto; padding: 8px; }
+  .cat-section-title {
+    font-size: 11px; font-weight: 700; color: var(--text-sub);
+    padding: 8px 8px 4px; letter-spacing: 0.5px; text-transform: uppercase;
+    border-bottom: 1px solid var(--border); margin-bottom: 4px;
+  }
+  .reagent-row {
+    padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 3px;
+    border: 1.5px solid transparent; transition: all 0.15s;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .reagent-row:hover { background: var(--blue-light); border-color: var(--blue-mid); }
+  .reagent-row.selected { background: var(--blue-light); border-color: var(--blue); }
+  .rr-info { flex: 1; min-width: 0; }
+  .rr-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rr-meta { font-size: 11px; color: var(--text-sub); margin-top: 1px; }
+  .rr-remaining { font-size: 12px; font-weight: 700; text-align: right; white-space: nowrap; }
+  .rr-remaining.ok { color: var(--green); }
+  .rr-remaining.low { color: var(--orange); }
+  .rr-remaining.empty { color: var(--red); }
+  .danger-dot { width: 7px; height: 7px; background: var(--red); border-radius: 50%; flex-shrink: 0; }
+
+  /* 우측 메인 */
+  .panel-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* 통계 카드 */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    padding: 16px 20px; background: var(--gray); border-bottom: 1px solid var(--border);
+  }
+  .stat-card {
+    background: white; border-radius: 10px; padding: 14px 16px;
+    box-shadow: var(--shadow); border-left: 4px solid var(--blue);
+  }
+  .stat-card.warning { border-left-color: var(--orange); }
+  .stat-card.danger { border-left-color: var(--red); }
+  .stat-card.success { border-left-color: var(--green); }
+  .stat-num { font-size: 26px; font-weight: 800; color: var(--blue); line-height: 1; }
+  .stat-card.warning .stat-num { color: var(--orange); }
+  .stat-card.danger .stat-num { color: var(--red); }
+  .stat-card.success .stat-num { color: var(--green); }
+  .stat-label { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+
+  /* 기록 패널 */
+  .records-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .records-header {
+    padding: 12px 20px; background: white; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .records-title { font-size: 14px; font-weight: 700; color: var(--blue); }
+  .records-scroll { flex: 1; overflow-y: auto; padding: 12px 20px; }
+
+  .record-card {
+    background: white; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07); border: 1px solid var(--border);
+    display: grid; grid-template-columns: 120px 1fr auto; gap: 14px; align-items: start;
+  }
+  .rc-date { font-size: 13px; color: var(--text-sub); }
+  .rc-date b { display: block; font-size: 14px; color: var(--text); margin-bottom: 2px; }
+  .rc-body .rc-name { font-size: 14px; font-weight: 700; color: var(--blue); margin-bottom: 3px; }
+  .rc-body .rc-purpose { font-size: 13px; color: var(--text); margin-bottom: 6px; }
+  .rc-amounts { display: flex; gap: 10px; flex-wrap: wrap; }
+  .rc-amount-badge {
+    font-size: 12px; padding: 3px 9px; border-radius: 4px;
+    background: var(--gray); color: var(--text-sub);
+  }
+  .rc-amount-badge b { color: var(--text); }
+  .rc-user { font-size: 12px; color: var(--text-sub); text-align: right; }
+
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--text-sub); }
+  .empty-state .es-icon { font-size: 40px; margin-bottom: 10px; }
+
+  /* 인쇄 스타일 */
+  @media print {
+    .header, .toolbar, .panel-left, .stats-row { display: none !important; }
+    .main { height: auto; overflow: visible; }
+    .panel-right { overflow: visible; }
+    .records-panel { overflow: visible; }
+    .records-scroll { overflow: visible; max-height: none; }
+    body { background: white; }
+    .record-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+    .records-header { position: static; }
+  }
+
+  .sort-btns { display:flex; gap:7px; }
+  .sort-btn { padding:6px 13px; border-radius:20px; border:1.5px solid var(--border); background:white; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--text-sub); transition:all 0.15s; }
+  .sort-btn.active { background:var(--blue); color:white; border-color:var(--blue); }
+
+  /* 스크롤바 */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--blue-mid); }
+
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 5px; }
+  .badge-danger { background: var(--red-light); color: var(--red); }
+  .badge-low { background: var(--orange-light); color: var(--orange); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div>
+      <div class="header-title">🧪 시약 현황 대시보드</div>
+      <div class="header-sub">광남고등학교 창의융합과학부</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span><span class="sync-dot" id="syncDot"></span><span id="syncText">연결 중...</span></span>
+    <span class="now-time" id="nowTime"></span>
+  </div>
+</div>
+
+<div class="toolbar">
+  <input type="text" class="search-input" placeholder="🔍 시약명 검색..." id="searchInput" oninput="applyFilter()">
+  <div class="cat-filter" id="catFilter"></div>
+  <div style="margin-left:auto; display:flex; gap:8px;">
+    <button class="btn btn-export" onclick="exportCSV()">📥 CSV 내보내기</button>
+    <button class="btn btn-print" onclick="window.print()">🖨️ 인쇄</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- 좌측: 시약 목록 -->
+  <div class="panel-left">
+    <div class="panel-title">
+      <span>⚗️ 시약 목록 <span id="reagentCount" style="font-weight:400;font-size:12px;color:var(--text-sub)"></span></span>
+    </div>
+    <div class="reagent-scroll" id="reagentScroll">
+      <div class="empty-state"><div class="es-icon">⏳</div>불러오는 중...</div>
+    </div>
+  </div>
+
+  <!-- 우측: 통계 + 기록 -->
+  <div class="panel-right">
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card"><div class="stat-num" id="sTotalCount">-</div><div class="stat-label">전체 시약 종류</div></div>
+      <div class="stat-card success"><div class="stat-num" id="sRecordCount">-</div><div class="stat-label">총 사용 기록</div></div>
+      <div class="stat-card warning"><div class="stat-num" id="sLowCount">-</div><div class="stat-label">잔량 부족 주의</div></div>
+      <div class="stat-card danger"><div class="stat-num" id="sDangerCount">-</div><div class="stat-label">위험 시약 수</div></div>
+    </div>
+    <div class="records-panel">
+      <div class="records-header">
+        <div class="records-title" id="recordsTitle">📋 전체 사용 기록</div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div class="sort-btns">
+            <button class="sort-btn active" id="sb-new" onclick="setSort('new')">🕐 최신순</button>
+            <button class="sort-btn" id="sb-asc" onclick="setSort('asc')">📅 오름차순</button>
+            <button class="sort-btn" id="sb-desc" onclick="setSort('desc')">📅 내림차순</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-sub)" id="recordsCount"></div>
+        </div>
+      </div>
+      <div class="records-scroll" id="recordsList">
+        <div class="empty-state"><div class="es-icon">📭</div>사용 기록이 없습니다</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCbge3SJHNLR0W_sF9Y-gJxCb81Tcwn1IE",
+  authDomain: "gwangnam-lab.firebaseapp.com",
+  projectId: "gwangnam-lab",
+  storageBucket: "gwangnam-lab.firebasestorage.app",
+  messagingSenderId: "404444667537",
+  appId: "1:404444667537:web:80e8be366d9ffdbe846930",
+  databaseURL: "https://gwangnam-lab-default-rtdb.firebaseio.com"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let reagents = {}, records = [], activeCat = '전체', selectedId = null, searchQ = '', sortMode = 'new';
+
+// 시계
+setInterval(() => {
+  document.getElementById('nowTime').textContent = new Date().toLocaleString('ko-KR', { hour12: false });
+}, 1000);
+
+onValue(ref(db, 'reagents'), snap => {
+  reagents = snap.val() || {};
+  document.getElementById('syncDot').className = 'sync-dot ok';
+  document.getElementById('syncText').textContent = '실시간 연결됨';
+  renderAll();
+}, () => {
+  document.getElementById('syncDot').className = 'sync-dot';
+  document.getElementById('syncText').textContent = '연결 끊김';
+});
+
+onValue(ref(db, 'records'), snap => {
+  const data = snap.val() || {};
+  records = Object.entries(data).map(([id, v]) => ({id, ...v})).sort((a,b) => b.createdAt - a.createdAt);
+  renderRecords();
+  document.getElementById('sRecordCount').textContent = records.length;
+});
+
+function renderAll() {
+  renderCatFilter();
+  renderReagentList();
+  renderStats();
+}
+
+function renderStats() {
+  const all = Object.values(reagents);
+  document.getElementById('sTotalCount').textContent = all.length;
+  document.getElementById('sDangerCount').textContent = all.filter(r => r.danger).length;
+  document.getElementById('sLowCount').textContent = '확인 중';
+}
+
+function renderCatFilter() {
+  const cats = ['전체', ...new Set(Object.values(reagents).map(r => r.cat).filter(Boolean))];
+  document.getElementById('catFilter').innerHTML = cats.map(c =>
+    `<button class="cat-btn ${c === activeCat ? 'active' : ''}" onclick="window.setCat('${c}')">${c}</button>`
+  ).join('');
+}
+
+window.setCat = (cat) => { activeCat = cat; selectedId = null; renderAll(); renderRecords(); };
+window.applyFilter = () => { searchQ = document.getElementById('searchInput').value.toLowerCase(); renderReagentList(); };
+
+function renderReagentList() {
+  const el = document.getElementById('reagentScroll');
+  const list = Object.entries(reagents).filter(([, r]) => {
+    const catOk = activeCat === '전체' || r.cat === activeCat;
+    const searchOk = !searchQ || r.name.toLowerCase().includes(searchQ);
+    return catOk && searchOk;
+  });
+  document.getElementById('reagentCount').textContent = `(${list.length}종)`;
+
+  const byCat = {};
+  list.forEach(([id, r]) => {
+    if (!byCat[r.cat]) byCat[r.cat] = [];
+    byCat[r.cat].push([id, r]);
+  });
+
+  el.innerHTML = Object.entries(byCat).map(([cat, items]) => `
+    ${activeCat === '전체' ? `<div class="cat-section-title">${cat}</div>` : ''}
+    ${items.map(([id, r]) => `
+      <div class="reagent-row ${selectedId === id ? 'selected' : ''}" onclick="selectReagent('${id}')">
+        ${r.danger ? '<div class="danger-dot"></div>' : '<div style="width:7px"></div>'}
+        <div class="rr-info">
+          <div class="rr-name">${r.name}</div>
+          <div class="rr-meta">${r.spec || '-'} | ${r.container || '-'}</div>
+        </div>
+        <div class="rr-remaining ok">${r.remaining}</div>
+      </div>`).join('')}
+  `).join('') || '<div class="empty-state"><div class="es-icon">🔍</div>검색 결과 없음</div>';
+}
+
+window.selectReagent = (id) => {
+  selectedId = id;
+  renderReagentList();
+  const r = reagents[id];
+  document.getElementById('recordsTitle').textContent = `📋 ${r.name} 사용 기록`;
+  renderRecords();
+};
+
+window.setSort = (mode) => {
+  sortMode = mode;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sb-'+mode).classList.add('active');
+  renderRecords();
+};
+
+function renderRecords() {
+  const el = document.getElementById('recordsList');
+  let filtered = selectedId
+    ? records.filter(r => r.reagentId === selectedId)
+    : records;
+  if(sortMode==='asc') filtered=[...filtered].sort((a,b)=>a.date.localeCompare(b.date));
+  else if(sortMode==='desc') filtered=[...filtered].sort((a,b)=>b.date.localeCompare(a.date));
+  else filtered=[...filtered].sort((a,b)=>b.createdAt-a.createdAt);
+  document.getElementById('recordsCount').textContent = `총 ${filtered.length}건`;
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty-state"><div class="es-icon">📭</div>사용 기록이 없습니다</div>';
+    return;
+  }
+  el.innerHTML = filtered.map(r => `
+    <div class="record-card">
+      <div class="rc-date">
+        <b>${r.date}</b>
+        ${r.period || ''}
+      </div>
+      <div class="rc-body">
+        <div class="rc-name">${r.reagentName}${r.spec ? ' <span style="font-weight:400;font-size:12px;color:var(--text-sub)">' + r.spec + '</span>' : ''}</div>
+        <div class="rc-purpose">📌 ${r.purpose}</div>
+        <div class="rc-amounts">
+          <span class="rc-amount-badge">사용량 <b>${r.amount}</b></span>
+          <span class="rc-amount-badge">사용 후 <b>${r.remaining}</b></span>
+          ${r.note ? `<span class="rc-amount-badge">📎 ${r.note}</span>` : ''}
+        </div>
+      </div>
+      <div class="rc-user">👤 ${r.user}</div>
+    </div>`).join('');
+}
+
+window.exportCSV = () => {
+  const rows = [['날짜','교시','시약명','규격','사용 목적','사용량','사용 후 잔량','사용자','비고']];
+  records.forEach(r => rows.push([r.date, r.period||'', r.reagentName, r.spec||'', r.purpose, r.amount, r.remaining, r.user, r.note||'']));
+  const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `시약사용기록_${new Date().toLocaleDateString('ko-KR').replace(/\. /g,'-').replace('.','')}.csv`;
+  a.click();
+};
+</script>
+</body>
+</html>
